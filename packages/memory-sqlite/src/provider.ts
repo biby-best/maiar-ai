@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 
-import { createLogger } from "@maiar-ai/core";
+import { MonitorService } from "@maiar-ai/core";
 import {
   Context,
   Conversation,
@@ -10,8 +10,6 @@ import {
   MemoryQueryOptions,
   Message
 } from "@maiar-ai/core";
-
-const log = createLogger("memory:sqlite");
 
 type JSONValue =
   | string
@@ -52,9 +50,20 @@ export class SQLiteProvider implements MemoryProvider {
       if (!fkEnabled || !fkEnabled.foreign_keys) {
         throw new Error("Foreign key constraints are not enabled");
       }
-      log.info({ msg: "SQLite health check passed" });
+      MonitorService.publishEvent({
+        type: "memory.sqlite.health_check",
+        message: "SQLite health check passed",
+        logLevel: "info"
+      });
     } catch (error) {
-      log.error({ msg: "SQLite health check failed", error });
+      MonitorService.publishEvent({
+        type: "memory.sqlite.health_check.failed",
+        message: "SQLite health check failed",
+        logLevel: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw new Error(
         `Failed to initialize SQLite database: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -63,7 +72,11 @@ export class SQLiteProvider implements MemoryProvider {
 
   private initializeStorage() {
     this.createTables().then(() => {
-      log.info({ msg: "Initialized SQLite memory storage" });
+      MonitorService.publishEvent({
+        type: "memory.sqlite.storage.initialized",
+        message: "Initialized SQLite memory storage",
+        logLevel: "info"
+      });
     });
   }
 
@@ -111,13 +124,32 @@ export class SQLiteProvider implements MemoryProvider {
     const [user, platform] = id.split("-");
     const timestamp = Date.now();
 
-    log.info({ msg: "Creating new conversation", id });
+    MonitorService.publishEvent({
+      type: "memory.sqlite.conversation.creating",
+      message: "Creating new conversation",
+      logLevel: "info",
+      metadata: { conversationId: id }
+    });
+
     try {
       stmt.run(id, user, platform, timestamp);
-      log.info({ msg: "Created conversation successfully", id });
+      MonitorService.publishEvent({
+        type: "memory.sqlite.conversation.created",
+        message: "Created conversation successfully",
+        logLevel: "info",
+        metadata: { conversationId: id }
+      });
       return id;
     } catch (error) {
-      log.error({ msg: "Failed to create conversation", id, error });
+      MonitorService.publishEvent({
+        type: "memory.sqlite.conversation.creation_failed",
+        message: "Failed to create conversation",
+        logLevel: "error",
+        metadata: {
+          conversationId: id,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw error;
     }
   }
@@ -189,7 +221,13 @@ export class SQLiteProvider implements MemoryProvider {
   }
 
   async getConversation(conversationId: string): Promise<Conversation> {
-    log.info({ msg: "Fetching conversation", conversationId });
+    MonitorService.publishEvent({
+      type: "memory.sqlite.conversation.fetching",
+      message: "Fetching conversation",
+      logLevel: "info",
+      metadata: { conversationId }
+    });
+
     const conversationStmt = this.db.prepare(
       "SELECT * FROM conversations WHERE id = ?"
     );
@@ -199,17 +237,27 @@ export class SQLiteProvider implements MemoryProvider {
     };
 
     if (!conversation) {
-      log.error({ msg: "Conversation not found", conversationId });
+      MonitorService.publishEvent({
+        type: "memory.sqlite.conversation.not_found",
+        message: "Conversation not found",
+        logLevel: "error",
+        metadata: { conversationId }
+      });
       throw new Error(`Conversation not found: ${conversationId}`);
     }
 
     const messages = await this.getMessages({ conversationId });
     const contexts = await this.getContexts(conversationId);
-    log.info({
-      msg: "Retrieved conversation",
-      conversationId,
-      messageCount: messages.length,
-      contextCount: contexts.length
+
+    MonitorService.publishEvent({
+      type: "memory.sqlite.conversation.retrieved",
+      message: "Retrieved conversation",
+      logLevel: "info",
+      metadata: {
+        conversationId,
+        messageCount: messages.length,
+        contextCount: contexts.length
+      }
     });
 
     return {
@@ -242,10 +290,14 @@ export class SQLiteProvider implements MemoryProvider {
     try {
       transaction();
     } catch (error) {
-      log.error({
-        msg: "Failed to delete conversation",
-        conversationId,
-        error
+      MonitorService.publishEvent({
+        type: "memory.sqlite.conversation.deletion_failed",
+        message: "Failed to delete conversation",
+        logLevel: "error",
+        metadata: {
+          conversationId,
+          error: error instanceof Error ? error.message : String(error)
+        }
       });
       throw error;
     }

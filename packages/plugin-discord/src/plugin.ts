@@ -8,7 +8,6 @@ import {
 
 import {
   AgentContext,
-  createLogger,
   MonitorService,
   PluginBase,
   PluginResult,
@@ -30,8 +29,6 @@ import {
   DiscordSendSchema,
   MessageIntentSchema
 } from "./types";
-
-const log = createLogger("plugin:discord");
 
 export class PluginDiscord extends PluginBase {
   private client: Client;
@@ -187,7 +184,14 @@ export class PluginDiscord extends PluginBase {
             }
           };
         } catch (error) {
-          log.error("Error sending Discord message", { err: error });
+          MonitorService.publishEvent({
+            type: "discord.message.send.error",
+            message: "Error sending Discord message",
+            logLevel: "error",
+            metadata: {
+              error: error instanceof Error ? error.message : String(error)
+            }
+          });
           return {
             success: false,
             error: error instanceof Error ? error.message : String(error)
@@ -239,9 +243,14 @@ export class PluginDiscord extends PluginBase {
 
           // Release processing lock after reply is sent
           this.isProcessing = false;
-          log.info("Message processing complete - agent unlocked", {
-            messageId,
-            channelId
+          MonitorService.publishEvent({
+            type: "discord.message.processing.complete",
+            message: "Message processing complete - agent unlocked",
+            logLevel: "info",
+            metadata: {
+              messageId,
+              channelId
+            }
           });
 
           const user = (context.platformContext as DiscordPlatformContext)
@@ -262,7 +271,14 @@ export class PluginDiscord extends PluginBase {
           this.isProcessing = false;
           this.stopTypingIndicator(channelId);
 
-          log.error("Error sending Discord reply", { err: error });
+          MonitorService.publishEvent({
+            type: "discord.message.reply.error",
+            message: "Error sending Discord reply",
+            logLevel: "error",
+            metadata: {
+              error: error instanceof Error ? error.message : String(error)
+            }
+          });
           return {
             success: false,
             error: error instanceof Error ? error.message : String(error)
@@ -277,14 +293,25 @@ export class PluginDiscord extends PluginBase {
 
     try {
       await this.client.login(this.config.token);
-      log.info("Discord client connected successfully");
+      MonitorService.publishEvent({
+        type: "discord.client.connected",
+        message: "Discord client connected successfully",
+        logLevel: "info"
+      });
 
       // Use once instead of on to ensure we only add the listener once
       if (!this.client.listenerCount(Events.MessageCreate)) {
         this.client.on(Events.MessageCreate, this.handleMessage.bind(this));
       }
     } catch (error) {
-      log.error("Failed to initialize Discord client", { err: error });
+      MonitorService.publishEvent({
+        type: "discord.client.initialization.error",
+        message: "Failed to initialize Discord client",
+        logLevel: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw error;
     }
   }
@@ -297,9 +324,14 @@ export class PluginDiscord extends PluginBase {
     // (Discord's typing indicator lasts 10 seconds, so we refresh before it expires)
     const interval = setInterval(() => {
       channel.sendTyping().catch((error) => {
-        log.error("Error sending typing indicator", {
-          error,
-          channelId: channel.id
+        MonitorService.publishEvent({
+          type: "discord.typing.error",
+          message: "Error sending typing indicator",
+          logLevel: "error",
+          metadata: {
+            error,
+            channelId: channel.id
+          }
         });
       });
     }, 7000);
@@ -309,9 +341,14 @@ export class PluginDiscord extends PluginBase {
 
     // Send initial typing indicator
     channel.sendTyping().catch((error) => {
-      log.error("Error sending initial typing indicator", {
-        error,
-        channelId: channel.id
+      MonitorService.publishEvent({
+        type: "discord.typing.error",
+        message: "Error sending typing indicator",
+        logLevel: "error",
+        metadata: {
+          error,
+          channelId: channel.id
+        }
       });
     });
   }
@@ -506,11 +543,16 @@ export class PluginDiscord extends PluginBase {
     } catch (error) {
       // Make sure we unlock if there's an error
       this.isProcessing = false;
-      log.error("Error processing message intent", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        message: message.content,
-        author: message.author.username
+      MonitorService.publishEvent({
+        type: "discord.message.intent.error",
+        message: "Error processing message intent",
+        logLevel: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          messageContent: message.content,
+          author: message.author.username
+        }
       });
     }
   }

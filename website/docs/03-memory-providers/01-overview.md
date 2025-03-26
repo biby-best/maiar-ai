@@ -55,9 +55,7 @@ Let's look at our SQLite implementation as an example. It demonstrates how to im
 import Database from "better-sqlite3";
 
 import { Context, Conversation, MemoryProvider, Message } from "@maiar-ai/core";
-import { createLogger } from "@maiar-ai/core";
-
-const log = createLogger("memory:sqlite");
+import { MonitorService } from "@maiar-ai/core";
 
 export interface SQLiteConfig {
   dbPath: string;
@@ -82,33 +80,33 @@ export class SQLiteProvider implements MemoryProvider {
 
   private async initializeStorage() {
     await this.db.exec(`
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY,
-        user TEXT NOT NULL,
-        platform TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      );
+        CREATE TABLE IF NOT EXISTS conversations (
+          id TEXT PRIMARY KEY,
+          user TEXT NOT NULL,
+          platform TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
 
-      CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY,
-        conversation_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        context_id TEXT,
-        user_message_id TEXT,
-        FOREIGN KEY (conversation_id) REFERENCES conversations(id)
-      );
+        CREATE TABLE IF NOT EXISTS messages (
+          id TEXT PRIMARY KEY,
+          conversation_id TEXT NOT NULL,
+          role TEXT NOT NULL,
+          content TEXT NOT NULL,
+          timestamp INTEGER NOT NULL,
+          context_id TEXT,
+          user_message_id TEXT,
+          FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+        );
 
-      CREATE TABLE IF NOT EXISTS contexts (
-        id TEXT PRIMARY KEY,
-        conversation_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        content TEXT NOT NULL,
-        timestamp INTEGER NOT NULL,
-        FOREIGN KEY (conversation_id) REFERENCES conversations(id)
-      );
-    `);
+        CREATE TABLE IF NOT EXISTS contexts (
+          id TEXT PRIMARY KEY,
+          conversation_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          content TEXT NOT NULL,
+          timestamp INTEGER NOT NULL,
+          FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+        );
+      `);
   }
 
   async getMessages(options: MemoryQueryOptions): Promise<Message[]> {

@@ -1,8 +1,6 @@
-import { createLogger, PluginBase, PluginResult } from "@maiar-ai/core";
+import { MonitorService, PluginBase, PluginResult } from "@maiar-ai/core";
 
 import { CharacterPluginConfig } from "./types";
-
-const log = createLogger("plugin:character");
 
 export class PluginCharacter extends PluginBase {
   constructor(private config: CharacterPluginConfig) {
@@ -21,7 +19,12 @@ export class PluginCharacter extends PluginBase {
       description:
         "Inject the character information into the context. This plugin must be run first every single time a pipeline is constructed no matter what. The purpose is to inform you on how you should respond by acting like the agent based on the character instructions.",
       execute: async (): Promise<PluginResult> => {
-        log.info("character information injected into context");
+        MonitorService.publishEvent({
+          type: "plugin.character.context.inject",
+          message: "Character information injected into context",
+          logLevel: "info"
+        });
+
         return {
           success: true,
           data: {

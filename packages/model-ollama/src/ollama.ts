@@ -1,11 +1,12 @@
 import { z } from "zod";
 
-import { ModelProviderBase, ModelRequestConfig } from "@maiar-ai/core";
-import { createLogger } from "@maiar-ai/core";
+import {
+  ModelProviderBase,
+  ModelRequestConfig,
+  MonitorService
+} from "@maiar-ai/core";
 
 import { verifyBasicHealth } from "./index";
-
-const log = createLogger("model:ollama");
 
 export interface OllamaConfig {
   baseUrl: string;
@@ -77,13 +78,21 @@ export class OllamaProvider extends ModelProviderBase {
       const data = await response.json();
       return data.response;
     } catch (error) {
-      log.error("Error getting text from Ollama:", error);
+      MonitorService.publishEvent({
+        type: "model.ollama.generation.error",
+        message: "Error getting text from Ollama",
+        logLevel: "error",
+        metadata: {
+          model: this.model,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw error;
     }
   }
 
   async init(): Promise<void> {
-    // Nothing to implemnt
+    // Nothing to implement
   }
 
   /**
@@ -94,12 +103,27 @@ export class OllamaProvider extends ModelProviderBase {
     try {
       // Send a GET request to the tag endpoint and verify if the model exists
       await verifyBasicHealth(this.baseUrl, this.model);
-      log.info({ msg: `Ollama model '${this.model}' health check passed` });
+
+      MonitorService.publishEvent({
+        type: "model.ollama.health_check.passed",
+        message: `Ollama model '${this.model}' health check passed`,
+        logLevel: "info",
+        metadata: {
+          model: this.model,
+          baseUrl: this.baseUrl
+        }
+      });
     } catch (error) {
-      log.error(
-        `Ollama model '${this.model}' health check failed: model not deployed`,
-        error
-      );
+      MonitorService.publishEvent({
+        type: "model.ollama.health_check.failed",
+        message: "Ollama model health check failed",
+        logLevel: "error",
+        metadata: {
+          model: this.model,
+          baseUrl: this.baseUrl,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw error;
     }
   }

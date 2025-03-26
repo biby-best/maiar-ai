@@ -1,11 +1,12 @@
 import { z } from "zod";
 
-import { ModelProviderBase, ModelRequestConfig } from "@maiar-ai/core";
-import { createLogger } from "@maiar-ai/core";
+import {
+  ModelProviderBase,
+  ModelRequestConfig,
+  MonitorService
+} from "@maiar-ai/core";
 
 import { verifyBasicHealth } from "./index";
-
-const log = createLogger("models");
 
 // Define capability schemas
 export const textGenerationSchema = {
@@ -60,7 +61,15 @@ export class DeepseekProvider extends ModelProviderBase {
     config?: ModelRequestConfig
   ): Promise<string> {
     try {
-      log.info("Sending prompt to Deepseek:", prompt);
+      MonitorService.publishEvent({
+        type: "model.deepseek.generation.start",
+        message: "Sending prompt to Deepseek",
+        logLevel: "info",
+        metadata: {
+          model: this.model,
+          promptLength: prompt.length
+        }
+      });
 
       const response = await fetch(`${this.baseUrl}/api/generate`, {
         method: "POST",
@@ -85,7 +94,15 @@ export class DeepseekProvider extends ModelProviderBase {
       const data = await response.json();
       const text = data.response;
 
-      log.info("Received response from Deepseek:", text);
+      MonitorService.publishEvent({
+        type: "model.deepseek.generation.complete",
+        message: "Received response from Deepseek",
+        logLevel: "info",
+        metadata: {
+          model: this.model,
+          text: text
+        }
+      });
 
       // Remove the "Assistant: Let me help you with that." prefix if it exists
       const cleanedText = text.replace(
@@ -95,7 +112,15 @@ export class DeepseekProvider extends ModelProviderBase {
 
       return cleanedText;
     } catch (error) {
-      log.error("Error getting text from Deepseek:", error);
+      MonitorService.publishEvent({
+        type: "model.deepseek.generation.error",
+        message: "Error getting text from Deepseek",
+        logLevel: "error",
+        metadata: {
+          model: this.model,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw error;
     }
   }
@@ -111,12 +136,27 @@ export class DeepseekProvider extends ModelProviderBase {
     try {
       // Send a GET request to the tag endpoint and verify if the model exists
       await verifyBasicHealth(this.baseUrl, this.model);
-      log.info({ msg: `Deepseek model '${this.model}' health check passed` });
+
+      MonitorService.publishEvent({
+        type: "model.deepseek.health_check.passed",
+        message: `Deepseek model '${this.model}' health check passed`,
+        logLevel: "info",
+        metadata: {
+          model: this.model,
+          baseUrl: this.baseUrl
+        }
+      });
     } catch (error) {
-      log.error(
-        `Deepseek model '${this.model}' health check failed: model not deployed in ollama server`,
-        error
-      );
+      MonitorService.publishEvent({
+        type: "model.deepseek.health_check.failed",
+        message: "Deepseek model health check failed",
+        logLevel: "error",
+        metadata: {
+          model: this.model,
+          baseUrl: this.baseUrl,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw error;
     }
   }

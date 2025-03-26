@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 
-import { createLogger } from "@maiar-ai/core";
+import { MonitorService } from "@maiar-ai/core";
 import {
   Context,
   Conversation,
@@ -9,8 +9,6 @@ import {
   MemoryQueryOptions,
   Message
 } from "@maiar-ai/core";
-
-const log = createLogger("memory:filesystem");
 
 export interface FileSystemConfig {
   basePath: string;
@@ -31,14 +29,21 @@ export class FileSystemProvider implements MemoryProvider {
   private async initializeStorage() {
     try {
       await fs.mkdir(this.basePath, { recursive: true });
-      log.info({
-        msg: "Initialized filesystem memory storage",
-        path: this.basePath
+      MonitorService.publishEvent({
+        type: "memory.filesystem.init",
+        message: "Initialized filesystem memory storage",
+        logLevel: "info",
+        metadata: { path: this.basePath }
       });
     } catch (error) {
-      log.error({
-        msg: "Failed to initialize filesystem memory storage",
-        error
+      MonitorService.publishEvent({
+        type: "memory.filesystem.init.failed",
+        message: "Failed to initialize filesystem memory storage",
+        logLevel: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error),
+          path: this.basePath
+        }
       });
       throw error;
     }
@@ -64,10 +69,14 @@ export class FileSystemProvider implements MemoryProvider {
     const filePath = this.getConversationPath(conversationId);
     await fs.writeFile(filePath, JSON.stringify(conversation, null, 2));
 
-    log.info({
-      msg: "Created new conversation",
-      conversationId,
-      filePath
+    MonitorService.publishEvent({
+      type: "memory.filesystem.conversation.created",
+      message: "Created new conversation",
+      logLevel: "info",
+      metadata: {
+        conversationId,
+        filePath
+      }
     });
 
     return conversationId;
@@ -129,7 +138,15 @@ export class FileSystemProvider implements MemoryProvider {
       );
       return JSON.parse(data);
     } catch (error) {
-      log.error({ msg: "Failed to read conversation", conversationId, error });
+      MonitorService.publishEvent({
+        type: "memory.filesystem.conversation.read.failed",
+        message: "Failed to read conversation",
+        logLevel: "error",
+        metadata: {
+          conversationId,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw new Error(`Conversation not found: ${conversationId}`);
     }
   }
@@ -138,10 +155,14 @@ export class FileSystemProvider implements MemoryProvider {
     try {
       await fs.unlink(this.getConversationPath(conversationId));
     } catch (error) {
-      log.error({
-        msg: "Failed to delete conversation",
-        conversationId,
-        error
+      MonitorService.publishEvent({
+        type: "memory.filesystem.conversation.delete.failed",
+        message: "Failed to delete conversation",
+        logLevel: "error",
+        metadata: {
+          conversationId,
+          error: error instanceof Error ? error.message : String(error)
+        }
       });
       throw error;
     }

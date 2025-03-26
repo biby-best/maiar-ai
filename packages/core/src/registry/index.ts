@@ -1,8 +1,6 @@
+import { MonitorService } from "../monitor";
 import { Plugin } from "../plugin";
-import { createLogger } from "../utils/logger";
 import { PluginRegistryInterface } from "./types";
-
-const log = createLogger("plugins");
 
 /**
  * Registry for managing plugins
@@ -15,25 +13,37 @@ export class PluginRegistry implements PluginRegistryInterface {
    */
   private validatePluginId(id: string): void {
     if (!id) {
-      log.error({
-        msg: "Plugin ID validation failed",
-        error: "ID cannot be empty"
+      MonitorService.publishEvent({
+        type: "registry.plugin.validation.failed",
+        message: "Plugin ID validation failed",
+        logLevel: "error",
+        metadata: {
+          error: "ID cannot be empty"
+        }
       });
       throw new Error("Plugin ID cannot be empty");
     }
     if (typeof id !== "string") {
-      log.error({
-        msg: "Plugin ID validation failed",
-        error: "ID must be a string",
-        received: typeof id
+      MonitorService.publishEvent({
+        type: "registry.plugin.validation.failed",
+        message: "Plugin ID validation failed",
+        logLevel: "error",
+        metadata: {
+          error: "ID must be a string",
+          received: typeof id
+        }
       });
       throw new Error("Plugin ID must be a string");
     }
     if (!id.startsWith("plugin-")) {
-      log.error({
-        msg: "Plugin ID validation failed",
-        error: 'ID must start with "plugin-"',
-        id
+      MonitorService.publishEvent({
+        type: "registry.plugin.validation.failed",
+        message: "Plugin ID validation failed",
+        logLevel: "error",
+        metadata: {
+          error: 'ID must start with "plugin-"',
+          id
+        }
       });
       throw new Error('Plugin ID must start with "plugin-"');
     }
@@ -44,9 +54,13 @@ export class PluginRegistry implements PluginRegistryInterface {
    */
   register(plugin: Plugin): void {
     if (!plugin) {
-      log.error({
-        msg: "Plugin registration failed",
-        error: "Plugin is null or undefined"
+      MonitorService.publishEvent({
+        type: "registry.plugin.registration.failed",
+        message: "Plugin registration failed",
+        logLevel: "error",
+        metadata: {
+          error: "Plugin is null or undefined"
+        }
       });
       throw new Error("Cannot register null or undefined plugin");
     }
@@ -55,10 +69,14 @@ export class PluginRegistry implements PluginRegistryInterface {
 
     if (this.plugins.has(plugin.id)) {
       const existing = Array.from(this.plugins.keys());
-      log.error({
-        msg: "Plugin ID collision",
-        id: plugin.id,
-        existingPlugins: existing
+      MonitorService.publishEvent({
+        type: "registry.plugin.id.collision",
+        message: "Plugin ID collision",
+        logLevel: "error",
+        metadata: {
+          id: plugin.id,
+          existingPlugins: existing
+        }
       });
       throw new Error(
         `Plugin ID collision: ${plugin.id} is already registered.\n` +
@@ -75,10 +93,14 @@ export class PluginRegistry implements PluginRegistryInterface {
   getPlugin(id: string): Plugin | undefined {
     const plugin = this.plugins.get(id);
     if (!plugin) {
-      log.warn({
-        msg: "Plugin not found",
-        id,
-        availablePlugins: Array.from(this.plugins.keys())
+      MonitorService.publishEvent({
+        type: "registry.plugin.not_found",
+        message: "Plugin not found",
+        logLevel: "warn",
+        metadata: {
+          id,
+          availablePlugins: Array.from(this.plugins.keys())
+        }
       });
     }
     return plugin;

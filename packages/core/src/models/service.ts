@@ -1,10 +1,8 @@
+import { MonitorService } from "../monitor";
 import { OperationConfig } from "../operations/base";
-import { createLogger } from "../utils/logger";
 import { ModelProvider } from "./base";
 import { CapabilityRegistry, ModelCapability } from "./capabilities";
 import { ICapabilities } from "./types";
-
-const log = createLogger("models");
 
 /**
  * Type-safe capability factory interface
@@ -38,15 +36,24 @@ export class ModelService {
       // If not, set this model as the default for this capability
       if (!this.registry.getDefaultModelForCapability(capability.id)) {
         this.registry.setDefaultModelForCapability(capability.id, model.id);
-        log.debug({
-          msg: "Set default model for capability",
-          capability: capability.id,
-          model: model.id
+        MonitorService.publishEvent({
+          type: "model.capability.default",
+          message: "Set default model for capability",
+          logLevel: "debug",
+          metadata: {
+            capability: capability.id,
+            model: model.id
+          }
         });
       }
     }
 
-    log.debug({ msg: "Registered model instance", modelId: model.id });
+    MonitorService.publishEvent({
+      type: "model.instance.registered",
+      message: "Registered model instance",
+      logLevel: "debug",
+      metadata: { modelId: model.id }
+    });
   }
 
   /**
@@ -57,7 +64,12 @@ export class ModelService {
       throw new Error(`Capability ${canonicalId} not found`);
     }
     this.capabilityAliases.set(alias, canonicalId);
-    log.debug({ msg: "Registered capability alias", alias, canonicalId });
+    MonitorService.publishEvent({
+      type: "model.capability.alias.registered",
+      message: "Registered capability alias",
+      logLevel: "debug",
+      metadata: { alias, canonicalId }
+    });
   }
 
   /**

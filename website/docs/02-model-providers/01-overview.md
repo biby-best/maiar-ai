@@ -108,9 +108,7 @@ While these think tags are valuable for debugging and understanding the model's 
 
 ```typescript
 import { ModelProvider, ModelRequestConfig } from "@maiar-ai/core";
-import { createLogger } from "@maiar-ai/core";
-
-const log = createLogger("models");
+import { MonitorService } from "@maiar-ai/core";
 
 export interface DeepseekConfig {
   baseUrl: string;
@@ -149,7 +147,14 @@ export class DeepseekProvider implements ModelProvider {
     config?: ModelRequestConfig
   ): Promise<string> {
     try {
-      log.info("Sending prompt to Deepseek:", prompt);
+      MonitorService.publishEvent({
+        type: "model.request.sent",
+        message: "Sending prompt to Deepseek",
+        logLevel: "info",
+        metadata: {
+          prompt
+        }
+      });
 
       const response = await fetch(`${this.baseUrl}/api/generate`, {
         method: "POST",
@@ -174,7 +179,14 @@ export class DeepseekProvider implements ModelProvider {
       const data = await response.json();
       const text = data.response;
 
-      log.info("Received response from Deepseek:", text);
+      MonitorService.publishEvent({
+        type: "model.response.received",
+        message: "Received response from Deepseek",
+        logLevel: "info",
+        metadata: {
+          responseLength: text.length
+        }
+      });
 
       // Clean up the model's reasoning process and think tags
       const cleanedText = text
@@ -183,7 +195,14 @@ export class DeepseekProvider implements ModelProvider {
 
       return cleanedText;
     } catch (error) {
-      log.error("Error getting text from Deepseek:", error);
+      MonitorService.publishEvent({
+        type: "model.generation.error",
+        message: "Error getting text from Deepseek",
+        logLevel: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
       throw error;
     }
   }

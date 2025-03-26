@@ -1,5 +1,5 @@
+import { MonitorService } from "../monitor";
 import { BaseContextItem } from "../types/agent";
-import { createLogger } from "../utils/logger";
 import {
   Context,
   Conversation,
@@ -7,8 +7,6 @@ import {
   MemoryQueryOptions,
   Message
 } from "./types";
-
-const log = createLogger("memory");
 
 /**
  * Service for managing memory operations
@@ -22,8 +20,11 @@ export class MemoryService {
     }
 
     this.provider = provider;
-    log.info({
-      msg: `Initialized memory service with provider: ${provider.id}`
+    MonitorService.publishEvent({
+      type: "memory.service.initialized",
+      message: `Initialized memory service with provider: ${provider.id}`,
+      logLevel: "info",
+      metadata: { providerId: provider.id }
     });
   }
 
@@ -45,27 +46,30 @@ export class MemoryService {
     messageId?: string
   ): Promise<void> {
     try {
-      log.info({
-        msg: "Storing user interaction",
-        user,
-        platform,
-        message,
-        messageId
+      MonitorService.publishEvent({
+        type: "memory.user.interaction.storing",
+        message: "Storing user interaction",
+        logLevel: "info",
+        metadata: { user, platform, message, messageId }
       });
+
       const conversationId = await this.getOrCreateConversation(user, platform);
-      log.info({
-        msg: "Got conversation ID",
-        conversationId,
-        user,
-        platform
+
+      MonitorService.publishEvent({
+        type: "memory.conversation.retrieved",
+        message: "Got conversation ID",
+        logLevel: "info",
+        metadata: { conversationId, user, platform }
       });
 
       // Use provided messageId or generate one
       const finalMessageId = messageId || `${platform}-${timestamp}`;
-      log.info({
-        msg: "Using message ID",
-        messageId: finalMessageId,
-        wasProvided: !!messageId
+
+      MonitorService.publishEvent({
+        type: "memory.message.id.generated",
+        message: "Using message ID",
+        logLevel: "info",
+        metadata: { messageId: finalMessageId, wasProvided: !!messageId }
       });
 
       // Store the user's message
@@ -78,17 +82,23 @@ export class MemoryService {
         },
         conversationId
       );
-      log.info({
-        msg: "Stored user message",
-        messageId: finalMessageId,
-        conversationId
+
+      MonitorService.publishEvent({
+        type: "memory.message.stored",
+        message: "Stored user message",
+        logLevel: "info",
+        metadata: { messageId: finalMessageId, conversationId }
       });
     } catch (error) {
-      log.error({
-        msg: "Failed to store user interaction",
-        error: error instanceof Error ? error.message : String(error),
-        user,
-        platform
+      MonitorService.publishEvent({
+        type: "memory.user.interaction.failed",
+        message: "Failed to store user interaction",
+        logLevel: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error),
+          user,
+          platform
+        }
       });
       throw error;
     }
@@ -104,29 +114,37 @@ export class MemoryService {
     contextChain: BaseContextItem[]
   ): Promise<void> {
     try {
-      log.info({
-        msg: "Storing assistant interaction",
-        user,
-        platform,
-        response
+      MonitorService.publishEvent({
+        type: "memory.assistant.interaction.storing",
+        message: "Storing assistant interaction",
+        logLevel: "info",
+        metadata: { user, platform, response }
       });
+
       const conversationId = await this.getOrCreateConversation(user, platform);
-      log.info({
-        msg: "Got conversation ID",
-        conversationId,
-        user,
-        platform
+
+      MonitorService.publishEvent({
+        type: "memory.conversation.retrieved",
+        message: "Got conversation ID",
+        logLevel: "info",
+        metadata: { conversationId, user, platform }
       });
+
       const timestamp = Date.now();
       const contextId = `${conversationId}-context-${timestamp}`;
       const messageId = `${conversationId}-assistant-${timestamp}`;
 
       // Get the user's message ID from the context chain
       const userMessage = contextChain[0];
-      log.info({
-        msg: "Context chain user message",
-        userMessage,
-        contextChain: JSON.stringify(contextChain)
+
+      MonitorService.publishEvent({
+        type: "memory.context.chain.processing",
+        message: "Context chain user message",
+        logLevel: "info",
+        metadata: {
+          userMessage,
+          contextChain: JSON.stringify(contextChain)
+        }
       });
 
       if (!userMessage?.id) {
@@ -134,9 +152,12 @@ export class MemoryService {
       }
 
       const userMessageId = userMessage.id;
-      log.info({
-        msg: "Using user message ID from context chain",
-        userMessageId
+
+      MonitorService.publishEvent({
+        type: "memory.message.id.extracted",
+        message: "Using user message ID from context chain",
+        logLevel: "info",
+        metadata: { userMessageId }
       });
 
       // Store the context chain first
@@ -149,10 +170,12 @@ export class MemoryService {
         },
         conversationId
       );
-      log.info({
-        msg: "Stored context",
-        contextId,
-        conversationId
+
+      MonitorService.publishEvent({
+        type: "memory.context.stored",
+        message: "Stored context",
+        logLevel: "info",
+        metadata: { contextId, conversationId }
       });
 
       // Then store the assistant's response with reference to the context and user message
@@ -168,61 +191,73 @@ export class MemoryService {
         conversationId
       );
 
-      log.info({
-        msg: "Successfully stored assistant interaction and context",
-        messageId,
-        contextId,
-        conversationId
+      MonitorService.publishEvent({
+        type: "memory.assistant.interaction.completed",
+        message: "Successfully stored assistant interaction and context",
+        logLevel: "info",
+        metadata: { messageId, contextId, conversationId }
       });
     } catch (error) {
-      log.error({
-        msg: "Failed to store assistant interaction",
-        error: error instanceof Error ? error.message : String(error),
-        user,
-        platform
+      MonitorService.publishEvent({
+        type: "memory.assistant.interaction.failed",
+        message: "Failed to store assistant interaction",
+        logLevel: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error),
+          user,
+          platform
+        }
       });
       throw error;
     }
   }
 
   async storeMessage(message: Message, conversationId: string): Promise<void> {
-    log.info({
-      msg: "MemoryService.storeMessage called",
-      conversationId,
-      message
+    MonitorService.publishEvent({
+      type: "memory.service.store_message.called",
+      message: "MemoryService.storeMessage called",
+      logLevel: "info",
+      metadata: { conversationId, message }
     });
     return this.provider.storeMessage(message, conversationId);
   }
 
   async storeContext(context: Context, conversationId: string): Promise<void> {
-    log.info({
-      msg: "MemoryService.storeContext called",
-      conversationId,
-      context
+    MonitorService.publishEvent({
+      type: "memory.service.store_context.called",
+      message: "MemoryService.storeContext called",
+      logLevel: "info",
+      metadata: { conversationId, context }
     });
     return this.provider.storeContext(context, conversationId);
   }
 
   async getMessages(options: MemoryQueryOptions): Promise<Message[]> {
-    log.info({
-      msg: "MemoryService.getMessages called",
-      options
+    MonitorService.publishEvent({
+      type: "memory.service.get_messages.called",
+      message: "MemoryService.getMessages called",
+      logLevel: "info",
+      metadata: { options }
     });
     return this.provider.getMessages(options);
   }
 
   async getContexts(conversationId: string): Promise<Context[]> {
-    log.info({
-      msg: "MemoryService.getContexts called",
-      conversationId
+    MonitorService.publishEvent({
+      type: "memory.service.get_contexts.called",
+      message: "MemoryService.getContexts called",
+      logLevel: "info",
+      metadata: { conversationId }
     });
     return this.provider.getContexts(conversationId);
   }
 
   async getConversation(conversationId: string): Promise<Conversation> {
-    log.info({
-      msg: "MemoryService.getConversation called",
-      conversationId
+    MonitorService.publishEvent({
+      type: "memory.service.get_conversation.called",
+      message: "MemoryService.getConversation called",
+      logLevel: "info",
+      metadata: { conversationId }
     });
     return this.provider.getConversation(conversationId);
   }
@@ -232,9 +267,11 @@ export class MemoryService {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     metadata?: Record<string, any>;
   }): Promise<string> {
-    log.info({
-      msg: "MemoryService.createConversation called",
-      options
+    MonitorService.publishEvent({
+      type: "memory.service.create_conversation.called",
+      message: "MemoryService.createConversation called",
+      logLevel: "info",
+      metadata: { options }
     });
     return this.provider.createConversation(options);
   }
@@ -282,11 +319,15 @@ export class MemoryService {
         timestamp: msg.timestamp
       }));
     } catch (error) {
-      log.error({
-        msg: "Failed to get conversation history",
-        error: error instanceof Error ? error.message : String(error),
-        user,
-        platform
+      MonitorService.publishEvent({
+        type: "memory.conversation.history.failed",
+        message: "Failed to get conversation history",
+        logLevel: "error",
+        metadata: {
+          error: error instanceof Error ? error.message : String(error),
+          user,
+          platform
+        }
       });
       return [];
     }
