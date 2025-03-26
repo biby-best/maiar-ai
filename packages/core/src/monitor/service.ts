@@ -3,6 +3,7 @@ import { MonitorProvider } from "./types";
 export interface MonitorEvent {
   type: string;
   message: string;
+  logLevel?: "debug" | "info" | "warn" | "error";
   metadata?: Record<string, unknown>;
 }
 
