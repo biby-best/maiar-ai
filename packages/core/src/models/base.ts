@@ -1,5 +1,4 @@
 import { MonitorService } from "../monitor/service";
-import { logModelInteraction } from "../utils/logger";
 import { ModelCapability } from "./capabilities";
 import { ICapabilities } from "./types";
 
@@ -147,36 +146,51 @@ export class LoggingModelDecorator extends ModelProviderBase {
         execute: async (input: unknown, config?: ModelRequestConfig) => {
           try {
             // Log the input
-            logModelInteraction("prompt", {
-              model: this.id,
-              capability: capability.id,
-              input,
-              config
+            MonitorService.publishEvent({
+              type: "model.capability.prompt",
+              message: `Model ${this.id} sending prompt to capability ${capability.id}`,
+              logLevel: "debug",
+              metadata: {
+                model: this.id,
+                capability: capability.id,
+                input,
+                config
+              }
             });
 
             // Execute the capability
             const response = await capability.execute(input, config);
 
             // Log the response
-            logModelInteraction("response", {
-              model: this.id,
-              capability: capability.id,
-              response,
-              execution_metadata: {
-                timestamp: new Date().toISOString(),
-                config
+            MonitorService.publishEvent({
+              type: "model.capability.response",
+              message: `Model ${this.id} received response from capability ${capability.id}`,
+              logLevel: "debug",
+              metadata: {
+                model: this.id,
+                capability: capability.id,
+                response,
+                execution_metadata: {
+                  timestamp: new Date().toISOString(),
+                  config
+                }
               }
             });
 
             return response;
           } catch (error) {
             // Log any errors
-            logModelInteraction("error", {
-              model: this.id,
-              capability: capability.id,
-              error: error instanceof Error ? error.message : String(error),
-              status: "failed",
-              input
+            MonitorService.publishEvent({
+              type: "model.capability.error",
+              message: `Model ${this.id} encountered error with capability ${capability.id}`,
+              logLevel: "error",
+              metadata: {
+                model: this.id,
+                capability: capability.id,
+                error: error instanceof Error ? error.message : String(error),
+                status: "failed",
+                input
+              }
             });
             throw error;
           }

@@ -15,7 +15,6 @@ import {
   getUserInput,
   UserInputContext
 } from "../types/agent";
-import { logPipelineState } from "../utils/logger";
 import {
   cleanJsonString,
   extractJson,
@@ -989,10 +988,11 @@ export class Runtime {
       let currentStepIndex = 0;
 
       // Log initial pipeline state
-      logPipelineState({
-        type: "pipeline_state",
-        timestamp: Date.now(),
-        data: {
+      MonitorService.publishEvent({
+        type: "runtime.pipeline.state",
+        message: "Pipeline state updated",
+        logLevel: "debug",
+        metadata: {
           currentPipeline,
           currentStepIndex,
           pipelineLength: currentPipeline.length,
@@ -1040,10 +1040,11 @@ export class Runtime {
           const result = await plugin.execute(currentStep.action, context);
 
           // Log step execution
-          logPipelineState({
-            type: "step_execution",
-            timestamp: Date.now(),
-            data: {
+          MonitorService.publishEvent({
+            type: "runtime.pipeline.step.executed",
+            message: "Step execution completed",
+            logLevel: "debug",
+            metadata: {
               currentPipeline,
               currentStepIndex,
               pipelineLength: currentPipeline.length,
@@ -1111,10 +1112,11 @@ export class Runtime {
             ];
 
             // Log modification
-            logPipelineState({
-              type: "modification_evaluation",
-              timestamp: Date.now(),
-              data: {
+            MonitorService.publishEvent({
+              type: "runtime.pipeline.modification.applied",
+              message: "Pipeline modification applied",
+              logLevel: "debug",
+              metadata: {
                 currentPipeline,
                 currentStepIndex,
                 pipelineLength: currentPipeline.length,
@@ -1153,10 +1155,11 @@ export class Runtime {
           await this.updateMonitoringState();
 
           // Log failed step
-          logPipelineState({
-            type: "step_execution",
-            timestamp: Date.now(),
-            data: {
+          MonitorService.publishEvent({
+            type: "runtime.pipeline.step.failed",
+            message: "Step execution failed",
+            logLevel: "error",
+            metadata: {
               currentPipeline,
               currentStepIndex,
               pipelineLength: currentPipeline.length,

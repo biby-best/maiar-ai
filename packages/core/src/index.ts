@@ -7,6 +7,5 @@ export * from "./runtime";
 export * from "./registry";
 export * from "./memory/types";
 export * from "./memory/service";
-export * from "./utils/logger";
 export * from "./monitor";
 export * from "./types/agent";
